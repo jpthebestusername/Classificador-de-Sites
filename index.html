@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classificador de Sites</title>
+    <style>
+        /* Corpo da página */
+        body {
+            background-color: #111;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 100vh;
+        }
+
+        /* Cabeçalho */
+        h1 {
+            background-color: #ff5722;
+            padding: 20px;
+            text-align: center;
+            margin: 0;
+            font-size: 2.5rem;
+            color: white;
+            box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Formulário */
+        .form-container {
+            margin: 20px;
+            text-align: center;
+        }
+
+        textarea, input[type="text"] {
+            width: 70%;
+            background-color: #333;
+            color: white;
+            font-family: monospace;
+            font-size: 16px;
+            padding: 12px;
+            border: 1px solid #ff5722;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: #ff5722;
+            color: black;
+            padding: 12px 20px;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #e64a19;
+        }
+
+        /* Resultados */
+        .resultado {
+            background-color: #333;
+            color: #fff;
+            font-family: monospace;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 5px;
+            text-align: left;
+        }
+
+        .resultado span {
+            font-weight: bold;
+        }
+
+        /* Rodapé */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            font-size: 12px;
+            text-align: center;
+            width: 100%;
+            opacity: 0.5;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .form-container textarea, .form-container input[type="text"] {
+                width: 90%;
+            }
+
+            .form-container button {
+                width: 80%;
+                font-size: 16px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Classificador de Sites Ideal</h1>
+
+    <div class="form-container">
+        <input type="text" id="filtro" placeholder="Filtrar por segmento (ex: Contabilidade)">
+        <br>
+        <textarea id="sitesInput" placeholder="Cole os sites aqui, um por linha. Máximo 100 sites..."></textarea><br>
+        <button onclick="classificarSites()">Classificar Sites</button>
+        <button onclick="exportarCSV()">Exportar Sites em CSV</button>
+    </div>
+
+    <div id="resultados"></div>
+
+    <!-- Rodapé -->
+    <div class="footer">
+        Direitos Autorais, Grupo Ideal Trends, criado por João Paulo Rocha. LDR.
+    </div>
+
+    <script>
+        let resultadosFiltrados = [];
+
+        function classificarSites() {
+            const input = document.getElementById("sitesInput").value;
+            const filtro = document.getElementById("filtro").value.trim().toLowerCase();
+            const sites = input.split('\n').map(s => s.trim()).filter(Boolean);
+
+            if (sites.length === 0) {
+                alert("Por favor, insira ao menos um site.");
+                return;
+            }
+
+            fetch("/classificar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sites })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro na resposta do servidor: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const resultadosDiv = document.getElementById("resultados");
+                resultadosDiv.innerHTML = "";
+                resultadosFiltrados = [];
+
+                data.resultados.forEach(res => {
+                    const [site, categoria] = res.split(" → ");
+                    const textoCategoria = categoria ? categoria.toLowerCase() : "";
+
+                    const deveMostrar = !filtro || (textoCategoria.includes(filtro));
+
+                    if (deveMostrar) {
+                        const div = document.createElement("div");
+                        div.className = "resultado";
+                        div.textContent = `${site} → ${categoria}`;
+                        resultadosDiv.appendChild(div);
+
+                        resultadosFiltrados.push({ site, categoria });
+                    }
+                });
+            })
+            .catch(error => {
+                alert("Erro ao classificar os sites. Certifique-se de que o servidor está rodando e acessível.");
+                console.error("Erro na requisição:", error);
+            });
+        }
+
+        function exportarCSV() {
+            if (resultadosFiltrados.length === 0) {
+                alert("Nenhum resultado para exportar.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Site,Categoria\n";
+            resultadosFiltrados.forEach(({ site, categoria }) => {
+                const linha = `${site},${categoria ? categoria : ""}`;
+                csvContent += linha + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "sites_filtrados.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
